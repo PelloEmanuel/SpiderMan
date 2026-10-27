@@ -1,0 +1,15 @@
+SPRITES Y TEXTURAS PROPIAS (opcional)
+Copiá PNG con transparencia en esta carpeta con EXACTAMENTE estos nombres; reemplazan a los generados por código.
+Si un archivo falta, se usa el generado (la consola puede mostrar un aviso 404, es normal).
+
+PERSONAJE (cualquier tamaño de celda, igual para todos los frames, mirando a la derecha, pies abajo)
+  hero_idle, hero_run0..run5 (se usan los que existan), hero_jump, hero_swing, hero_climb, hero_punch, hero_punch0/1/2 (combo), hero_dash, hero_hurt
+  (ya incluidos: sprites de Spider-Man, ver CREDITOS.txt; se regeneran con tools/build_hero_assets.py)
+ENEMIGOS (32x40 px; 0 = quieto, 1 y 2 = caminar)
+  e_thug_0/1/2, e_gunner_0/1/2, e_brute_0/1/2, e_rhino_0/1/2, e_electro_0/1/2
+EDIFICIOS (zonas de anclaje) - texturas repetibles SIN costuras, exactamente 256x256 px
+  win_tower, win_brick, win_ware  -> fachadas de la fila delantera (detallada)
+  win_far                         -> fachada de la fila trasera (menos detalle)
+FONDO LEJANO (no enganchable)
+  sky 1280x720 | moon 160x160 | far y mid 1280x500 (repetibles en horizontal)
+Ejemplo: assets/win_tower.png
