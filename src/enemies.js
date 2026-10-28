@@ -1,13 +1,22 @@
-// Sistema de enemigos y jefes con sprites oficiales Marvel / Spider-Man
+// ==========================================
+// SISTEMA DE ENEMIGOS COMUNES Y JEFES
+// ==========================================
+// Controla la creación, inteligencia artificial (IA), ataques y animaciones de los personajes enemigos.
+
+// ------------------------------------------
+// Creación y aparición de un enemigo común
+// ------------------------------------------
+// Configura vida, tamaño del cuerpo de colisión centrado en los pies y puntos que otorga
 function spawnEnemy(s, x, y, type, ev, lvl=1){
   const def = GAME_ENEMIES[type] || GAME_ENEMIES.duke;
   const k0 = def.idleKeys && def.idleKeys[0] ? def.idleKeys[0] : 'hero_idle';
-  // Los enemigos terrestres se apoyan directamente en la calle (CFG.STREET)
+  
+  // Se apoya directamente sobre la superficie de la calle (CFG.STREET)
   const spawnY = CFG.STREET;
   const e = s.enemies.create(x, spawnY, k0).setDepth(8);
   const sc = def.scale || 0.95;
   e.setScale(sc);
-  e.setOrigin(0.5, 1.0); // Ancla a los pies directamente sobre la calle
+  e.setOrigin(0.5, 1.0); // Ancla en los pies para evitar desfases de altura
   e.setCollideWorldBounds(true);
   
   const bw = Math.min(Math.max(24, e.width * 0.55), 44);
@@ -36,7 +45,10 @@ function spawnEnemy(s, x, y, type, ev, lvl=1){
   return e;
 }
 
-// Spawnea un jefe oficial con su configuración
+// ------------------------------------------
+// Creación y aparición de un Jefe oficial
+// ------------------------------------------
+// Configura si vuela o pelea en el suelo, tamaño físico, vida y puntos
 function spawnBoss(s, bossCfg){
   const x = s.player.x + (s.player.facing > 0 ? 500 : -500);
   const y = bossCfg.flying ? CFG.STREET - 170 : CFG.STREET;
@@ -75,24 +87,32 @@ function spawnBoss(s, bossCfg){
   return boss;
 }
 
-// Telaraña sobre un enemigo inmovilizado
+// ------------------------------------------
+// Efecto visual de telaraña inmovilizadora
+// ------------------------------------------
 function webOn(s, e){
   if(e.d.webFx || !s.textures.exists('fx_web0')) return;
   const sc = Math.max(1, e.displayHeight * 1.05 / 49);
-  e.d.webFx = ['fx_web0','fx_web2'].map(k=>s.add.image(e.x, e.y - e.displayHeight*0.4, k).setDepth(9).setScale(sc).setAlpha(.9));
-}
-function webOff(e){
-  if(e.d.webFx){ e.d.webFx.forEach(w=>w.destroy()); e.d.webFx=null; }
+  e.d.webFx = ['fx_web0','fx_web2'].map(k => s.add.image(e.x, e.y - e.displayHeight * 0.4, k).setDepth(9).setScale(sc).setAlpha(.9));
 }
 
-// Disparo de proyectiles enemigos
+function webOff(e){
+  if(e.d.webFx){ e.d.webFx.forEach(w => w.destroy()); e.d.webFx = null; }
+}
+
+// ------------------------------------------
+// Creación de proyectiles enemigos
+// ------------------------------------------
 function enemyShoot(s, e, ang, dmg, spd, color=0xffcc33, r=6){
   const startY = e.body ? e.body.center.y : (e.y - 25);
   const c = s.add.circle(e.x, startY, r, color).setDepth(12);
-  s.shots.push({ c, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, life: 2.8, dmg });
+  s.shots.push({ c, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 2.8, dmg });
 }
 
-// Actualización de enemigo común
+// ------------------------------------------
+// Inteligencia Artificial de Enemigos Comunes
+// ------------------------------------------
+// Gestiona movimiento, ataques cuerpo a cuerpo o a distancia y animaciones
 function updateEnemy(s, e, dt){
   const d = e.d, p = s.player, b = e.body;
   const g = b.blocked.down || b.touching.down;
@@ -100,7 +120,7 @@ function updateEnemy(s, e, dt){
   d.cd -= dt; d.stun -= dt; d.kb -= dt; d.animT += dt;
   if(d.atkTimer > 0) d.atkTimer -= dt;
 
-  // CORRECCIÓN DE NIVEL DE SUELO: los enemigos nunca caen por debajo de la calle
+  // CORRECCIÓN DE PISO: asegura que el enemigo jamás baje del nivel de la calle
   if(!d.flying){
     if(e.y > CFG.STREET || b.bottom > CFG.STREET){
       e.y = CFG.STREET;
@@ -110,10 +130,11 @@ function updateEnemy(s, e, dt){
     }
   }
   
+  // Estado de inmovilización por telaraña
   if(d.stun > 0){
     b.velocity.x *= 0.85;
     e.setTint(0xaaddff);
-    if(d.webFx) d.webFx.forEach(w=>w.setPosition(e.x, e.y - e.displayHeight*0.4));
+    if(d.webFx) d.webFx.forEach(w => w.setPosition(e.x, e.y - e.displayHeight * 0.4));
     return;
   } else {
     webOff(e);
@@ -121,6 +142,7 @@ function updateEnemy(s, e, dt){
   }
   if(d.kb > 0) return;
   
+  // Cálculo de distancias basado en el centro de los cuerpos
   const ey = e.body ? e.body.center.y : e.y;
   const py = p.sp.body ? p.sp.body.center.y : p.y;
   const dx = p.x - e.x, dy = py - ey;
@@ -134,10 +156,10 @@ function updateEnemy(s, e, dt){
     }
   };
   
-  // Ataque o acercamiento
+  // Comportamiento según el tipo de ataque
   let desiredVx = 0;
   if(d.ranged){
-    // Enemigo a distancia (Blade / Moose)
+    // Enemigos a distancia (Blade con pistola / Moose con shurikens)
     const tooFar = dist > 360, tooNear = dist < 200;
     desiredVx = tooNear ? -dir * d.speed : (tooFar ? dir * d.speed : 0);
     hop();
@@ -149,7 +171,7 @@ function updateEnemy(s, e, dt){
       enemyShoot(s, e, ang, d.dmg, 380, d.type === 'moose' ? 0xcccccc : 0xffaa22, d.type === 'moose' ? 5 : 4);
     }
   } else {
-    // Enemigo cuerpo a cuerpo
+    // Enemigos cuerpo a cuerpo
     const inRange = Math.abs(dx) < (d.range || 42);
     desiredVx = inRange ? 0 : dir * d.speed;
     hop();
@@ -163,7 +185,7 @@ function updateEnemy(s, e, dt){
   
   b.setVelocityX(desiredVx);
   
-  // Selección y sincronización de animación visual manteniendo el anclaje físico
+  // Sincronización de animaciones manteniendo el pie en el suelo
   let frames = d.idleKeys;
   if(d.atkTimer > 0 && d.atkKeys && d.atkKeys.length){
     frames = d.atkKeys;
@@ -176,21 +198,23 @@ function updateEnemy(s, e, dt){
     const key = frames[idx];
     if(s.textures.exists(key) && e.texture.key !== key){
       e.setTexture(key);
-      // Sincronizar el offset del cuerpo con el nuevo tamaño del frame
       e.body.setSize(d.bodyW, d.bodyH);
       e.body.setOffset((e.width - d.bodyW) / 2, e.height - d.bodyH);
     }
   }
 }
 
-// Actualización de Jefe
+// ------------------------------------------
+// Inteligencia Artificial de Jefes
+// ------------------------------------------
+// Controla patrones de vuelo, embestidas, proyectiles especiales y la arena de 2 pantallas
 function updateBoss(s, e, dt){
   const d = e.d, p = s.player, b = e.body;
   const g = b.blocked.down || b.touching.down;
   
   d.cd -= dt; d.stun -= dt; d.kb -= dt; d.animT += dt; d.modeT -= dt;
 
-  // CORRECCIÓN DE NIVEL DE SUELO: jefes terrestres nunca caen por debajo de la calle
+  // CORRECCIÓN DE PISO: los jefes terrestres se mantienen siempre en la calle
   if(!d.flying){
     if(e.y > CFG.STREET || b.bottom > CFG.STREET){
       e.y = CFG.STREET;
@@ -200,10 +224,11 @@ function updateBoss(s, e, dt){
     }
   }
 
+  // Estado inmovilizado
   if(d.stun > 0){
     b.velocity.x *= 0.9;
     e.setTint(0x88ccff);
-    if(d.webFx) d.webFx.forEach(w=>w.setPosition(e.x, e.y - e.displayHeight*0.4));
+    if(d.webFx) d.webFx.forEach(w => w.setPosition(e.x, e.y - e.displayHeight * 0.4));
     return;
   } else {
     webOff(e);
@@ -217,14 +242,15 @@ function updateBoss(s, e, dt){
   const dir = Math.sign(dx) || 1;
   e.setFlipX(dir < 0);
   
-  // Mantener jefe dentro de la arena de 2 pantallas
+  // Limita el movimiento del jefe a la arena de 2 pantallas
   if(s.bossFight && s.arenaBounds){
     e.x = Phaser.Math.Clamp(e.x, s.arenaBounds.minX + 35, s.arenaBounds.maxX - 35);
   }
   
-  // Comportamiento según tipo de jefe
+  // ------------------------------------------
+  // Jefes Voladores (Hobgoblin, Duende Verde, Doctor Doom)
+  // ------------------------------------------
   if(d.flying){
-    // Jefes voladores: Hobgoblin, Duende Verde, Doctor Doom
     d.flyT += dt * 2.5;
     const targetY = (CFG.STREET - 170) + Math.sin(d.flyT) * 45;
     b.y += (targetY - b.y) * 0.08;
@@ -263,8 +289,11 @@ function updateBoss(s, e, dt){
         d.modeT = 3.2;
       }
     }
-  } else {
-    // Jefes terrestres: Kingpin, Scorpion, Lizard, Electro, Sandman, Venom
+  } 
+  // ------------------------------------------
+  // Jefes Terrestres (Kingpin, Scorpion, Lizard, Electro, Sandman, Venom)
+  // ------------------------------------------
+  else {
     if(d.mode === 'move'){
       const inRange = Math.abs(dx) < 55;
       b.setVelocityX(inRange ? 0 : dir * d.speed);
@@ -307,7 +336,7 @@ function updateBoss(s, e, dt){
     }
   }
   
-  // Ciclo de animación
+  // Selección de animaciones del jefe
   let frames = d.idleKeys;
   if(d.mode === 'charge' && d.chargeKeys && d.chargeKeys.length){
     frames = d.chargeKeys;

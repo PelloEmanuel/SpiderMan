@@ -1,4 +1,9 @@
 <?php
+// ==========================================
+// API REST DE PUNTAJES (MARIADB / PHP)
+// ==========================================
+// Gestiona la conexión PDO, creación automática de base de datos y ordenamiento por puntos y tiempo.
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -8,13 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// ------------------------------------------
+// Parámetros de Conexión a MariaDB (XAMPP)
+// ------------------------------------------
 $host = '127.0.0.1';
 $user = 'root';
 $pass = '';
 $dbname = 'spiderman_db';
 
 try {
-    // Intentar conectar sin BD primero por si no existe
+    // Conexión PDO con creación automática de BD y tabla si no existen
     $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
@@ -39,9 +47,12 @@ try {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+// ------------------------------------------
+// MÉTODO GET: Consulta los mejores puntajes
+// ------------------------------------------
+// Criterio de clasificación: 1º Mayor Puntaje, 2º Menor Tiempo empleado
 if ($method === 'GET') {
     try {
-        // Orden: Primero por puntos descendente, luego por menor tiempo ascendente
         $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha 
                              FROM `puntajes` 
                              ORDER BY puntos DESC, tiempo_segundos ASC 
@@ -55,6 +66,9 @@ if ($method === 'GET') {
     exit;
 }
 
+// ------------------------------------------
+// MÉTODO POST: Registra un nuevo puntaje
+// ------------------------------------------
 if ($method === 'POST') {
     $raw = file_get_contents('php://input');
     $data = json_decode($raw, true);
@@ -67,11 +81,12 @@ if ($method === 'POST') {
     $puntos = intval($data['puntos'] ?? 0);
     $tiempo = floatval($data['tiempo_segundos'] ?? ($data['tiempo'] ?? 0));
 
-    // Límite de puntos: puntaje necesario para el último jefe (Doctor Doom: 40000)
+    // Límite máximo de puntos: puntaje necesario para el último jefe (Doctor Doom: 40.000)
     if ($puntos > 40000) {
         $puntos = 40000;
     }
 
+    // Validación de campos obligatorios
     if ($nombre === '' || $apellido === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Nombre y apellido son obligatorios.']);
@@ -79,16 +94,17 @@ if ($method === 'POST') {
     }
 
     try {
+        // Inserción preparada contra inyección SQL
         $stmt = $pdo->prepare("INSERT INTO `puntajes` (`nombre`, `apellido`, `puntos`, `tiempo_segundos`) VALUES (?, ?, ?, ?)");
         $stmt->execute([$nombre, $apellido, $puntos, $tiempo]);
         $insertedId = $pdo->lastInsertId();
 
-        // Calcular posición actual
+        // Cálculo de posición en el ranking: más puntos va primero; si empatan, menor tiempo desempata
         $rankStmt = $pdo->prepare("SELECT COUNT(*) + 1 as rank FROM `puntajes` WHERE puntos > ? OR (puntos = ? AND tiempo_segundos < ?)");
         $rankStmt->execute([$puntos, $puntos, $tiempo]);
         $rank = $rankStmt->fetch()['rank'];
 
-        // Obtener lista actualizada
+        // Obtener la tabla actualizada
         $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha 
                              FROM `puntajes` 
                              ORDER BY puntos DESC, tiempo_segundos ASC 

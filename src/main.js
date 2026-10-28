@@ -1,6 +1,13 @@
-// Escena principal: combate, jefes, arena, temporizador, puntajes y conexión MariaDB
+// ==========================================
+// ESCENA PRINCIPAL DEL JUEGO (GAME SCENE)
+// ==========================================
+// Administra el ciclo de vida del juego, combate, temporizador, jefes, arena y conexión con la base de datos.
+
 const FONT = "Impact,'Arial Black',sans-serif";
 
+// ------------------------------------------
+// Funciones auxiliares (Escape HTML y formato de tiempo)
+// ------------------------------------------
 function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str;
@@ -14,6 +21,9 @@ function formatTime(sec){
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms}`;
 }
 
+// ------------------------------------------
+// Carga de la Tabla de Posiciones desde PHP / MariaDB
+// ------------------------------------------
 function loadLeaderboard(tableBodyId){
   fetch('scores.php')
     .then(r => r.json())
@@ -48,8 +58,14 @@ function loadLeaderboard(tableBodyId){
 class GameScene extends Phaser.Scene {
   constructor(){ super('game'); }
   
+  // ------------------------------------------
+  // Precarga de Assets (Sprites y texturas)
+  // ------------------------------------------
   preload(){
+    // Carga texturas base y fondos
     ASSET_KEYS.forEach(k => this.load.image(k, 'assets/' + k + '.png?v=' + BUILD));
+    
+    // Carga los 440 sprites de los 10 enemigos y 9 jefes desde el manifest
     if(typeof SPRITE_MANIFEST !== 'undefined'){
       for(const [k, v] of Object.entries(SPRITE_MANIFEST)){
         this.load.image(k, v + '?v=' + BUILD);
@@ -57,8 +73,13 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Inicialización de la Escena y Actores
+  // ------------------------------------------
   create(data){
     window.__scene = this;
+    
+    // Variables de estado de la partida
     Object.assign(this, {
       seed: Math.floor(Math.random()*1e6),
       score: 0,
@@ -84,15 +105,16 @@ class GameScene extends Phaser.Scene {
     ASSET_KEYS.filter(k => /^(hero_|e_|fx_|moon|botiquin)/.test(k))
       .forEach(k => this.textures.exists(k) && this.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST));
     
-    // Deshabilitar menú contextual del navegador
+    // Deshabilita el menú contextual para que el clic derecho funcione exclusivamente para la telaraña
     this.input.mouse.disableContextMenu();
     window.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Configurar teclado de Phaser para NO bloquear escritura en campos HTML
+    // Permite que el teclado no bloquee la escritura en inputs HTML
     if(this.input.keyboard){
       this.input.keyboard.preventDefault = false;
     }
 
+    // Fondo estelar y capas lejanas con parallax
     const sf = o => o.setOrigin(0).setScrollFactor(0);
     this.cameras.main.setBackgroundColor('#03050f');
     sf(this.add.image(0, 0, 'sky')).setDepth(-30);
@@ -103,11 +125,13 @@ class GameScene extends Phaser.Scene {
     sf(this.add.image(0, 520, 'fog')).setDepth(-12);
     sf(this.add.image(0, 0, 'vig')).setDepth(90);
 
+    // Grupos físicos para edificios y enemigos
     this.buildings = this.physics.add.staticGroup();
     this.enemies = this.physics.add.group();
     this.city = new City(this);
     this.city.update(0);
 
+    // Jugador (Spider-Man) y cámara de seguimiento
     this.player = new Player(this, 200, CFG.STREET - 60);
     this.physics.add.collider(this.player.sp, this.buildings);
     this.physics.add.collider(this.enemies, this.buildings);
@@ -119,16 +143,17 @@ class GameScene extends Phaser.Scene {
     this.ui = new UI(this);
     this.keyR = this.input.keyboard.addKey('R');
 
-    // Configuración de elementos HTML del DOM y libertad para escribir nombres
+    // Conectar eventos del formulario HTML
     this.setupDOM();
 
+    // Inicio pausado mostrando la pantalla inicial con la tabla de posiciones
     if(data && data.skip){
       const startOv = document.getElementById('start-overlay');
       if(startOv) startOv.classList.remove('active');
       this.start();
     } else {
       this.physics.pause();
-      if(this.input.keyboard) this.input.keyboard.enabled = false; // Teclado inactivo en pantalla de inicio
+      if(this.input.keyboard) this.input.keyboard.enabled = false;
       loadLeaderboard('start-leaderboard-body');
       
       const onFirstAction = () => {
@@ -142,6 +167,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Manejo de Formularios y Modales HTML
+  // ------------------------------------------
   setupDOM(){
     const btnStart = document.getElementById('btn-start-game');
     if(btnStart){
@@ -157,7 +185,7 @@ class GameScene extends Phaser.Scene {
       };
     }
 
-    // Permitir escribir con total libertad en los campos de texto
+    // Desvincula teclas de Phaser cuando el usuario escribe en Nombre y Apellido
     const textInputs = document.querySelectorAll('#score-form input');
     textInputs.forEach(input => {
       input.addEventListener('keydown', e => e.stopPropagation());
@@ -173,6 +201,7 @@ class GameScene extends Phaser.Scene {
       });
     });
 
+    // Envío del formulario de puntaje a MariaDB
     const scoreForm = document.getElementById('score-form');
     if(scoreForm){
       scoreForm.onsubmit = (ev) => {
@@ -210,7 +239,7 @@ class GameScene extends Phaser.Scene {
             feedback.textContent = `¡Puntaje registrado! Posición #${res.rank}. Volviendo a la pantalla de inicio...`;
             submitBtn.style.display = 'none';
 
-            // Tras registrar el puntaje, llevar automáticamente a la pantalla de inicio
+            // Regresa automáticamente a la pantalla de inicio con la tabla y controles
             setTimeout(() => {
               const gameoverOv = document.getElementById('gameover-overlay');
               if(gameoverOv) gameoverOv.classList.remove('active');
@@ -246,17 +275,23 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Iniciar partida activa
+  // ------------------------------------------
   start(){
     if(this.started) return;
     this.started = true;
     this.timerRunning = true;
     this.holdRT = 0;
     this.physics.resume();
-    if(this.input.keyboard) this.input.keyboard.enabled = true; // Activar teclado para el juego
+    if(this.input.keyboard) this.input.keyboard.enabled = true;
     const startOv = document.getElementById('start-overlay');
     if(startOv) startOv.classList.remove('active');
   }
 
+  // ------------------------------------------
+  // Efectos visuales de impacto y textos flotantes
+  // ------------------------------------------
   fx(x, y, col, n){
     for(let i = 0; i < n; i++){
       const c = this.add.circle(x, y, 3, col).setDepth(20);
@@ -287,6 +322,9 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - (big ? 50 : 40), alpha: 0, duration: big ? 650 : 500, onComplete: () => t.destroy() });
   }
 
+  // ------------------------------------------
+  // Daño a enemigos y reacción física
+  // ------------------------------------------
   hurtEnemy(e, dmg, kx, ky){
     const d = e.d;
     kx *= d.boss ? 0.08 : (d.armor ? 0.3 : 1);
@@ -305,6 +343,9 @@ class GameScene extends Phaser.Scene {
     if(d.hp <= 0) this.removeEnemy(e, true);
   }
 
+  // ------------------------------------------
+  // Derrota y remoción de enemigos
+  // ------------------------------------------
   removeEnemy(e, killed){
     const d = e.d;
     if(killed){
@@ -312,9 +353,11 @@ class GameScene extends Phaser.Scene {
       this.ring(e.x, e.y, 0xff4466);
       
       const pts = d.points || (d.boss ? 1500 : 75);
+      // Límite máximo de puntaje: 40.000 pts
       this.score = Math.min(CFG.MAX_SCORE, this.score + pts);
       this.pop(e.x, e.y - 50, `+${pts} PTS`, true);
       
+      // Si era un jefe, se desbloquea la arena y se busca el siguiente
       if(d.boss){
         this.defeatedBosses.add(d.name);
         this.currentBoss = null;
@@ -322,6 +365,7 @@ class GameScene extends Phaser.Scene {
         
         this.nextBoss = GAME_BOSSES.find(b => !this.defeatedBosses.has(b.name)) || null;
 
+        // Victoria al derrotar a Doctor Doom
         if(d.isFinal){
           this.time.delayedCall(800, () => this.triggerVictory());
         }
@@ -332,17 +376,22 @@ class GameScene extends Phaser.Scene {
     e.destroy();
   }
 
+  // ------------------------------------------
+  // Inicio de batalla contra Jefe (Arena de 2 pantallas = 2560px)
+  // ------------------------------------------
   startBossFight(bossCfg){
     this.bossFight = true;
     const px = this.player.x;
-    const arenaW = 2560; // 2 pantallas
+    const arenaW = 2560; // Exactamente el doble de pantalla
     const minX = Math.max(0, Math.floor(px - 1000));
     const maxX = minX + arenaW;
     this.arenaBounds = { minX, maxX };
 
+    // Limpia enemigos comunes para dejar solo al jefe
     this.enemies.getChildren().filter(e => !e.d.boss).forEach(e => this.removeEnemy(e, false));
     this.events = [];
 
+    // Limita cámara y física al área de la arena
     this.cameras.main.setBounds(minX, -2500, arenaW, CFG.STREET + 90 + 2500);
     this.physics.world.setBounds(minX, -3000, arenaW, CFG.STREET + 3080);
 
@@ -352,6 +401,9 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.shake(400, 0.015);
   }
 
+  // ------------------------------------------
+  // Fin de la batalla contra Jefe y apertura del mapa
+  // ------------------------------------------
   endBossFight(){
     this.bossFight = false;
     this.arenaBounds = null;
@@ -360,12 +412,17 @@ class GameScene extends Phaser.Scene {
       this.arenaGfx.destroy();
       this.arenaGfx = null;
     }
+    // Restablece límites infinitos del mundo
     this.cameras.main.setBounds(0, -2500, 1e7, CFG.STREET + 90 + 2500);
     this.physics.world.setBounds(this.city.minX, -3000, 1e7, CFG.STREET + 3080);
     this.pop(this.player.x, this.player.y - 80, '¡JEFE DERROTADO! CIUDAD DESPEJADA', true);
   }
 
+  // ------------------------------------------
+  // Generación periódica de enemigos comunes
+  // ------------------------------------------
   spawnEvent(){
+    // Si hay un jefe activo, NO aparecen enemigos comunes
     if(this.bossFight || this.currentBoss) return;
 
     const p = this.player, ev = { alive: 0 };
@@ -396,6 +453,9 @@ class GameScene extends Phaser.Scene {
     this.events.push(ev);
   }
 
+  // ------------------------------------------
+  // Renderizado de Parallax y Barreras de Arena
+  // ------------------------------------------
   bg(){
     const c = this.cameras.main;
     this.far.tilePositionX = c.scrollX * 0.08;
@@ -403,6 +463,7 @@ class GameScene extends Phaser.Scene {
     this.mid.tilePositionX = c.scrollX * 0.2;
     this.mid.y = 140 + (770 - c.scrollY) * 0.2;
 
+    // Barreras energéticas verticales durante pelea contra jefe
     if(this.bossFight && this.arenaBounds && this.arenaGfx){
       const g = this.arenaGfx;
       g.clear();
@@ -417,6 +478,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Pantalla de Derrota (Game Over)
+  // ------------------------------------------
   triggerGameOver(){
     if(this.dead) return;
     this.dead = true;
@@ -441,6 +505,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Pantalla de Victoria Total (Derrotar a Doctor Doom)
+  // ------------------------------------------
   triggerVictory(){
     if(this.won) return;
     this.won = true;
@@ -464,6 +531,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------
+  // Bucle principal del juego (Update Loop)
+  // ------------------------------------------
   update(t, delta){
     const dt = Math.min(delta / 1000, 0.05);
     this.bg();
@@ -478,7 +548,9 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Mantener apretado 3 segundos la letra R para terminar el juego y anotar puntaje
+    // ------------------------------------------
+    // Rendición: mantener pulsada R durante 3 segundos
+    // ------------------------------------------
     if(this.keyR && this.keyR.isDown){
       this.holdRT += dt;
       if(this.holdRT >= 3.0){
@@ -491,7 +563,7 @@ class GameScene extends Phaser.Scene {
       this.holdRT = 0;
     }
 
-    // Actualizar temporizador
+    // Actualiza temporizador activo
     if(this.timerRunning){
       this.gameTimer += dt;
     }
@@ -499,14 +571,14 @@ class GameScene extends Phaser.Scene {
     this.player.update(dt);
     this.city.update(this.player.x, dt);
 
-    // Verificación de aparición de jefes según puntaje
+    // Comprobación de aparición de jefes según puntaje alcanzado
     if(!this.currentBoss && !this.bossFight && this.nextBoss){
       if(this.score >= this.nextBoss.score){
         this.startBossFight(this.nextBoss);
       }
     }
 
-    // Actualización de enemigos y jefes
+    // Actualización de enemigos y jefes activos
     this.enemies.getChildren().slice().forEach(e => {
       if(!e.active) return;
       if(e.y > CFG.STREET + 250 || e.x < this.city.minX - 200 || e.x > this.player.x + 2200){
@@ -517,7 +589,7 @@ class GameScene extends Phaser.Scene {
       }
     });
 
-    // Proyectiles enemigos
+    // Actualización de proyectiles enemigos
     for(let i = this.shots.length - 1; i >= 0; i--){
       const q = this.shots[i];
       q.c.x += q.vx * dt;
@@ -534,7 +606,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Generación periódica de enemigos comunes (solo si NO hay jefe activo)
+    // Spawn periódico de enemigos comunes (solo si no hay jefe)
     if(!this.bossFight && !this.currentBoss){
       this.events = this.events.filter(e => e.alive > 0);
       this.evT -= dt;
@@ -546,7 +618,7 @@ class GameScene extends Phaser.Scene {
 
     this.cameras.main.setFollowOffset(-this.player.sp.body.velocity.x * 0.2, -this.player.sp.body.velocity.y * 0.05);
 
-    // Muerte del jugador por daño
+    // Muerte por daño
     if(this.player.hp <= 0 && !this.dead){
       this.triggerGameOver();
     }
@@ -555,6 +627,9 @@ class GameScene extends Phaser.Scene {
   }
 }
 
+// ------------------------------------------
+// Creación de la instancia global de Phaser
+// ------------------------------------------
 window.__game = new Phaser.Game({
   type: Phaser.AUTO,
   width: CFG.W,

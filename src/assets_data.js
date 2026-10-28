@@ -1,4 +1,7 @@
-// Definiciones de datos de enemigos, jefes y mapeo de sprites
+// ==========================================
+// CATÁLOGO DE ENEMIGOS, JEFES Y MANIFEST DE SPRITES
+// ==========================================
+// Define estadísticas (HP, velocidad, daño, puntos) y mapea las rutas de los 440 sprites individuales.
 const GAME_ENEMIES = {
   "duke": {
     "name": "Duke",
