@@ -1,8 +1,10 @@
 <?php
 // ==========================================
-// API REST DE PUNTAJES (MARIADB / PHP)
+// API REST DE PUNTAJES (PHP + PostgreSQL en Render)
 // ==========================================
-// Gestiona la conexión PDO, creación automática de base de datos y ordenamiento por puntos y tiempo.
+// La conexión se lee de variables de entorno (nada de claves en el código):
+//   DATABASE_URL  -> postgresql://usuario:clave@host:5432/basedatos   (recomendado)
+//   o bien DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -14,60 +16,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ------------------------------------------
-// Parámetros de Conexión a MariaDB (XAMPP)
+// Parámetros de conexión
 // ------------------------------------------
-$host = '127.0.0.1';
-$user = 'root';
-$pass = '';
-$dbname = 'spiderman_db';
+$url = getenv('DATABASE_URL');
+if ($url) {
+    $p = parse_url($url);
+    $host   = $p['host'] ?? '127.0.0.1';
+    $port   = $p['port'] ?? 5432;
+    $dbname = ltrim($p['path'] ?? '', '/');
+    $user   = isset($p['user']) ? urldecode($p['user']) : '';
+    $pass   = isset($p['pass']) ? urldecode($p['pass']) : '';
+} else {
+    $host   = getenv('DB_HOST') ?: '127.0.0.1';
+    $port   = getenv('DB_PORT') ?: 5432;
+    $dbname = getenv('DB_NAME') ?: 'spiderman_db';
+    $user   = getenv('DB_USER') ?: 'postgres';
+    $pass   = getenv('DB_PASSWORD') ?: '';
+}
+
+// La URL externa de Render exige SSL; la interna no lo necesita.
+$sslmode = getenv('DB_SSLMODE') ?: (strpos($host, '.render.com') !== false ? 'require' : 'prefer');
 
 try {
-    // Conexión PDO con creación automática de BD y tabla si no existen
-    $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $pass, [
+    $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$dbname;sslmode=$sslmode", $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
-    
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $pdo->exec("USE `$dbname`");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `puntajes` (
-        `id` INT AUTO_INCREMENT PRIMARY KEY,
-        `nombre` VARCHAR(100) NOT NULL,
-        `apellido` VARCHAR(100) NOT NULL,
-        `puntos` INT NOT NULL,
-        `tiempo_segundos` DECIMAL(10, 2) NOT NULL,
-        `fecha` DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // Crea la tabla automáticamente si no existe
+    $pdo->exec("CREATE TABLE IF NOT EXISTS puntajes (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(100) NOT NULL,
+        apellido VARCHAR(100) NOT NULL,
+        puntos INTEGER NOT NULL,
+        tiempo_segundos NUMERIC(10, 2) NOT NULL,
+        fecha TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP
+    )");
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Error de conexión a la base de datos: ' . $e->getMessage()]);
+    // No se expone el detalle del error (podría revelar datos de conexión); queda en los logs de Render.
+    error_log('DB connection error: ' . $e->getMessage());
+    echo json_encode(['error' => 'Error de conexión a la base de datos.']);
     exit;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ------------------------------------------
-// MÉTODO GET: Consulta los mejores puntajes
+// GET: mejores puntajes (mayor puntaje, luego menor tiempo)
 // ------------------------------------------
-// Criterio de clasificación: 1º Mayor Puntaje, 2º Menor Tiempo empleado
 if ($method === 'GET') {
     try {
-        $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha 
-                             FROM `puntajes` 
-                             ORDER BY puntos DESC, tiempo_segundos ASC 
+        $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha
+                             FROM puntajes
+                             ORDER BY puntos DESC, tiempo_segundos ASC
                              LIMIT 20");
-        $scores = $stmt->fetchAll();
-        echo json_encode(['success' => true, 'scores' => $scores]);
+        echo json_encode(['success' => true, 'scores' => $stmt->fetchAll()]);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Error al obtener puntajes: ' . $e->getMessage()]);
+        error_log('DB get error: ' . $e->getMessage());
+        echo json_encode(['error' => 'Error al obtener puntajes.']);
     }
     exit;
 }
 
 // ------------------------------------------
-// MÉTODO POST: Registra un nuevo puntaje
+// POST: registra un nuevo puntaje
 // ------------------------------------------
 if ($method === 'POST') {
     $raw = file_get_contents('php://input');
@@ -81,12 +95,21 @@ if ($method === 'POST') {
     $puntos = intval($data['puntos'] ?? 0);
     $tiempo = floatval($data['tiempo_segundos'] ?? ($data['tiempo'] ?? 0));
 
-    // Límite máximo de puntos: puntaje necesario para el último jefe (Doctor Doom: 40.000)
+    // Límite máximo de puntos: Doctor Doom (40.000)
     if ($puntos > 40000) {
         $puntos = 40000;
     }
+    if ($puntos < 0) {
+        $puntos = 0;
+    }
+    if ($tiempo < 0) {
+        $tiempo = 0;
+    }
 
-    // Validación de campos obligatorios
+    // Recorta para respetar VARCHAR(100)
+    $nombre = mb_substr($nombre, 0, 100);
+    $apellido = mb_substr($apellido, 0, 100);
+
     if ($nombre === '' || $apellido === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Nombre y apellido son obligatorios.']);
@@ -94,32 +117,33 @@ if ($method === 'POST') {
     }
 
     try {
-        // Inserción preparada contra inyección SQL
-        $stmt = $pdo->prepare("INSERT INTO `puntajes` (`nombre`, `apellido`, `puntos`, `tiempo_segundos`) VALUES (?, ?, ?, ?)");
+        // En PostgreSQL se usa RETURNING en vez de lastInsertId()
+        $stmt = $pdo->prepare("INSERT INTO puntajes (nombre, apellido, puntos, tiempo_segundos)
+                               VALUES (?, ?, ?, ?) RETURNING id");
         $stmt->execute([$nombre, $apellido, $puntos, $tiempo]);
-        $insertedId = $pdo->lastInsertId();
+        $insertedId = $stmt->fetchColumn();
 
-        // Cálculo de posición en el ranking: más puntos va primero; si empatan, menor tiempo desempata
-        $rankStmt = $pdo->prepare("SELECT COUNT(*) + 1 as rank FROM `puntajes` WHERE puntos > ? OR (puntos = ? AND tiempo_segundos < ?)");
+        // Posición en el ranking
+        $rankStmt = $pdo->prepare("SELECT COUNT(*) + 1 AS posicion FROM puntajes
+                                   WHERE puntos > ? OR (puntos = ? AND tiempo_segundos < ?)");
         $rankStmt->execute([$puntos, $puntos, $tiempo]);
-        $rank = $rankStmt->fetch()['rank'];
+        $rank = $rankStmt->fetchColumn();
 
-        // Obtener la tabla actualizada
-        $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha 
-                             FROM `puntajes` 
-                             ORDER BY puntos DESC, tiempo_segundos ASC 
+        $stmt = $pdo->query("SELECT id, nombre, apellido, puntos, tiempo_segundos, fecha
+                             FROM puntajes
+                             ORDER BY puntos DESC, tiempo_segundos ASC
                              LIMIT 20");
-        $scores = $stmt->fetchAll();
 
         echo json_encode([
-            'success' => true, 
-            'id' => $insertedId, 
+            'success' => true,
+            'id' => $insertedId,
             'rank' => $rank,
-            'scores' => $scores
+            'scores' => $stmt->fetchAll()
         ]);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Error al guardar puntaje: ' . $e->getMessage()]);
+        error_log('DB insert error: ' . $e->getMessage());
+        echo json_encode(['error' => 'Error al guardar puntaje.']);
     }
     exit;
 }

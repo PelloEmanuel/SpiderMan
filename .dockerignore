@@ -1,0 +1,10 @@
+.git
+node_modules
+tools
+sprites_src
+database.sql
+README.md
+package.json
+package-lock.json
+Dockerfile
+.dockerignore
