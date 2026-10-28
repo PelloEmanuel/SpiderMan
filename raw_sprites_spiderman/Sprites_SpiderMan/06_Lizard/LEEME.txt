@@ -1,0 +1,2 @@
+No se recibio ninguna hoja de sprites de Lizard (tampoco aparece en la hoja de Enemigos).
+Enviame el archivo y lo proceso igual que el resto.

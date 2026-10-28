@@ -5,10 +5,9 @@ const POSES={ // l = pies, a = manos (x,y) dentro de un sprite de 32x40
   swing:{l:[[13,40],[19,38]],a:[[13,3],[19,3]]}, climb:{l:[[11,38],[21,34]],a:[[10,7],[22,11]]},
   punch:{l:[[9,40],[23,40]],a:[[31,17],[6,25]]}
 };
-const ENEMY_STYLES=['thug','gunner','runner','brute','rhino','electro'];
 const HERO_EXTRA=['idle1','ready','crouch','wait','webstart','dive','tumble0','tumble1','tumble2','shoot','dead'];
 const FX_KEYS=['fx_speed_h','fx_speed_v','fx_speed_d','fx_web0','fx_web1','fx_web2','fx_bolt'];
-const ASSET_KEYS=[...Object.keys(POSES).map(p=>'hero_'+p),...['run2','run3','run4','run5','punch0','punch1','punch2','dash','hurt'].map(p=>'hero_'+p),...HERO_EXTRA.map(p=>'hero_'+p),...FX_KEYS,...ENEMY_STYLES.flatMap(st=>[0,1,2].map(i=>'e_'+st+'_'+i)),'street','sky','moon','far','mid','win_tower','win_brick','win_ware','win_far'];
+const ASSET_KEYS=[...Object.keys(POSES).map(p=>'hero_'+p),...['run2','run3','run4','run5','punch0','punch1','punch2','dash','hurt'].map(p=>'hero_'+p),...HERO_EXTRA.map(p=>'hero_'+p),...FX_KEYS,'street','sky','moon','far','mid','win_tower','win_brick','win_ware','win_far','botiquin'];
 function drawBody(g,p,o){
   g.lineStyle(o.legW,o.leg); p.l.forEach((f,i)=>g.lineBetween(i?18:14,30,f[0],f[1]));
   g.lineStyle(o.armW,o.arm); p.a.forEach((h,i)=>g.lineBetween(i?20:12,19,h[0],h[1]));
@@ -21,23 +20,21 @@ function drawHero(g,pose){
   g.fillStyle(0xffffff).fillTriangle(10,6,15,9,11,12).fillTriangle(22,6,17,9,21,12);
   g.fillStyle(0x111111).fillRect(15,19,2,6); g.lineStyle(1,0x111111).lineBetween(12,20,20,24).lineBetween(20,20,12,24);
 }
-function drawEnemy(g,style,pose){
-  const big=style==='brute';
-  drawBody(g,POSES[pose],{legW:big?7:5,leg:0x777777,armW:big?6:4,arm:0xcccccc,torso:0xeeeeee,tw:big?18:12,head:0xeeeeee});
-  g.fillStyle(0x222233).fillRect(9,6,14,5); g.fillStyle(0xff3355).fillRect(11,7,3,2).fillRect(18,7,3,2);
-  if(style==='thug') g.fillStyle(0x333344).fillRect(8,0,16,4);
-  if(style==='gunner') g.lineStyle(3,0x222222).lineBetween(24,24,32,20);
-  if(style==='rhino') g.fillStyle(0xffffff).fillTriangle(16,0,12,6,20,6);
-  if(style==='electro') g.lineStyle(2,0xffffff).lineBetween(14,18,18,22).lineBetween(18,22,14,27);
-}
 function makeTextures(s){
-  const g=s.make.graphics({add:false}), T=s.textures; s.png=new Set(T.getTextureKeys()); // qué texturas vienen de archivos PNG let v=7; const rnd=()=>(v=(v*16807)%2147483647)/2147483647;
+  const g=s.make.graphics({add:false}), T=s.textures; s.png=new Set(T.getTextureKeys());
+  let v=7; const rnd=()=>(v=(v*16807)%2147483647)/2147483647;
   const mk=(k,w,h,fn)=>{ if(T.exists(k)) return; fn(); g.generateTexture(k,w,h); g.clear(); };
   for(const p of Object.keys(POSES)) mk('hero_'+p,32,40,()=>drawHero(g,p));
-  for(const st of ENEMY_STYLES) ['idle','run0','run1'].forEach((p,i)=>mk('e_'+st+'_'+i,32,40,()=>drawEnemy(g,st,p)));
   mk('sky',1280,720,()=>g.fillGradientStyle(0x03050f,0x03050f,0x241a5a,0x241a5a,1).fillRect(0,0,1280,720));
   mk('moon',160,160,()=>{ g.fillStyle(0xdfe6ff,.1).fillCircle(80,80,80).fillStyle(0xdfe6ff,.18).fillCircle(80,80,62).fillStyle(0xeaeeff).fillCircle(80,80,46);
     g.fillStyle(0xc3cbe8).fillCircle(66,70,9).fillCircle(95,92,12).fillCircle(88,60,6); });
+  // Botiquín médico de curación completa
+  mk('botiquin',32,28,()=>{
+    g.fillStyle(0xeeeeee).fillRoundedRect(2,6,28,20,3).lineStyle(2,0x111111).strokeRoundedRect(2,6,28,20,3);
+    g.lineStyle(2,0x666666).lineBetween(12,4,20,4);
+    g.fillStyle(0xe0223a).fillRect(13,9,6,14).fillRect(9,13,14,6);
+    g.fillStyle(0xffcc00).fillRect(5,7,3,3).fillRect(24,7,3,3);
+  });
   // Siluetas lejanas con poco detalle (parallax; no se pueden enganchar)
   const sky=(k,col,hMin,hMax,win)=>mk(k,1280,500,()=>{ for(let x=0;x<1280;){ const w=Math.min(Math.floor(60+rnd()*70),1280-x), h=Math.floor(hMin+rnd()*(hMax-hMin));
     g.fillStyle(col).fillRect(x,500-h,w,h);

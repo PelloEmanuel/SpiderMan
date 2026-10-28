@@ -1,24 +1,48 @@
-// Ciudad procedural infinita a nivel de calle. Los edificios son fachadas de fondo (sin colisión) a las que
-// se puede enganchar la telaraña en cualquier punto. Fila A: detallada. Fila B: detrás, menos detalle. Más lejos: capas parallax.
+// Ciudad procedural infinita a nivel de calle con edificios, fachadas enganchables y botiquines médicos.
 class City {
   constructor(scene){ this.s=scene; this.map=new Map(); this.lastCi=-9; }
-  update(px){
+  update(px, dt=0.016){
     const ci=Math.floor(px/CFG.CHUNK);
     for(let i=Math.max(0,ci-2);i<=ci+3;i++) if(!this.map.has(i)) this.make(i);
     for(const [i,c] of this.map) if(i<ci-3){ this.free(c); this.map.delete(i); }
     if(ci!==this.lastCi){ this.lastCi=ci; this.s.physics.world.setBounds(Math.max(0,ci-2)*CFG.CHUNK,-3000,1e7,CFG.STREET+3080); }
+    
+    // Actualización de botiquines en cada chunk
+    const p=this.s.player;
+    for(const c of this.map.values()){
+      if(!c.medkit) continue;
+      const m=c.medkit;
+      if(!m.activeMedkit){
+        m.cooldown-=dt;
+        if(m.cooldown<=0){
+          m.activeMedkit=true;
+          m.setVisible(true);
+          this.s.fx(m.bx,m.baseY,0x33ff66,10);
+        }
+      } else if(p && Math.hypot(p.x-m.bx, p.y-m.baseY)<45){
+        // Jugador agarra el botiquín: cura toda la vida
+        p.hp=CFG.PLAYER_HP;
+        m.activeMedkit=false;
+        m.setVisible(false);
+        m.cooldown=CFG.MEDKIT_COOLDOWN; // 45 segundos para reaparecer
+        this.s.fx(m.bx,m.baseY,0x33ff66,22);
+        this.s.ring(m.bx,m.baseY,0x33ff66);
+        this.s.pop(m.bx,m.baseY-35,'¡VIDA 100%!',true);
+      }
+    }
   }
   get minX(){ return Math.max(0,this.lastCi-2)*CFG.CHUNK; }
   rects(){ const a=[]; for(const c of this.map.values()) a.push(...c.rects); return a; } // superficies enganchables
   make(i){
     const s=this.s, ST=CFG.STREET, r=new Phaser.Math.RandomDataGenerator(['c'+s.seed+'_'+i]);
-    const prev=this.map.get(i-1), c={bodies:[],objs:[],rects:[],endX:0,endXB:0,endTop:0};
+    const prev=this.map.get(i-1), c={bodies:[],objs:[],rects:[],medkit:null,endX:0,endXB:0,endTop:0};
     const back=s.add.graphics().setDepth(-3), d=s.add.graphics().setDepth(2), glow=s.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
     c.objs.push(back,d,glow);
     const tile=(key,x,y,w,h,depth)=>{ const t=s.add.tileSprite(x,y,w,h,key).setOrigin(0).setDepth(depth).setTilePosition(r.between(0,255),r.between(0,255)); c.objs.push(t); };
     const blink=(x,y,w,h,col,dur)=>{ const o=s.add.rectangle(x,y,w,h,col).setDepth(3).setAlpha(0); c.objs.push(o);
       s.tweens.add({targets:o,alpha:1,duration:dur,yoyo:true,repeat:-1,delay:r.between(0,800)}); };
     const x0=i*CFG.CHUNK, x1=x0+CFG.CHUNK;
+    
     // Calle: suelo físico, acera, líneas, farolas y autos
     const floor=s.add.rectangle(x0+CFG.CHUNK/2,ST+40,CFG.CHUNK,80,0x0a0e20).setDepth(1); s.buildings.add(floor); c.bodies.push(floor);
     if(s.textures.exists('street')){ const t=s.add.tileSprite(x0,ST+4,CFG.CHUNK,90,'street').setOrigin(0).setDepth(1.5).setTilePosition(x0%256,0); c.objs.push(t); }
@@ -30,6 +54,15 @@ class City {
       d.fillStyle(cc).fillRect(cx,ST-14,52,12); d.fillStyle(0x222846).fillRect(cx+12,ST-24,28,10); d.fillStyle(0x9fd8ff,.6).fillRect(cx+15,ST-22,10,7).fillRect(cx+27,ST-22,10,7);
       d.fillStyle(0x05060c).fillCircle(cx+11,ST-2,5).fillCircle(cx+41,ST-2,5); d.fillStyle(0xfff1a8).fillRect(cx+50,ST-11,3,4);
       glow.fillStyle(0xfff1a8,.15).fillTriangle(cx+52,ST-9,cx+110,ST-2,cx+110,ST-16); }
+
+    // BOTIQUÍN FIJO DEL CHUNK: aparece siempre en x0 + 500, cura toda la vida, respawnea cada 45s
+    const medX = x0 + 500, medY = ST - 18;
+    const med = s.add.image(medX, medY, 'botiquin').setDepth(5).setScale(1.15);
+    med.bx = medX; med.baseY = medY; med.activeMedkit = true; med.cooldown = 0;
+    s.tweens.add({ targets: med, y: medY - 6, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    c.objs.push(med);
+    c.medkit = med;
+
     // Fila B (detrás, menos detalle, más altos): también se puede enganchar
     let xb=prev?prev.endXB:x0;
     while(xb<x1){ const w=r.between(120,260), top=r.between(260,980);
@@ -37,6 +70,7 @@ class City {
       if(r.frac()<.5){ back.lineStyle(2,0x1c2552).lineBetween(xb+w/2,top,xb+w/2,top-40); back.fillStyle(0xff2a4a,.8).fillCircle(xb+w/2,top-40,3); }
       xb+=w+r.between(0,30); }
     c.endXB=xb;
+
     // Fila A (frente, detallada)
     let x=prev?prev.endX:x0, prevTop=prev?prev.endTop:700;
     while(x<x1){

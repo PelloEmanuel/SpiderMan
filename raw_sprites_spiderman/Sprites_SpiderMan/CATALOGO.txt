@@ -1,0 +1,26 @@
+CATALOGO
+
+01_Enemigos (cada tipo con nombre distinto):
+  Rocco: Ninja azul sin arma - 36 sprites
+  Vinnie: Ninja con espada - 33 sprites
+  Hawk: Matón gordo - 47 sprites
+  Duke: Matón camiseta roja - 39 sprites
+  Slim: Matón traje blanco - 42 sprites
+  Spike: Matón traje oscuro con sombrero - 41 sprites
+  Mack: Mutante naranja - 36 sprites
+  Bruno: Mini ninja con espada - 18 sprites
+  Moose: Ninja de shurikens - 18 sprites
+  Blade: Pistolero marrón - 10 sprites
+02_Kingpin: 77 sprites
+03_Hobgoblin: 26 sprites
+04_Duende_Verde: 70 sprites
+05_Scorpion: 40 sprites
+06_Lizard: 0 sprites
+07_Electro: 30 sprites
+08_Sandman: 55 sprites
+09_Venom: 124 sprites
+10_Doctor_Doom: 110 sprites
+
+Kingpin y enemigos van nombrados por animacion (segun las etiquetas de la hoja).
+El resto va numerado en orden de lectura (izq-der, arriba-abajo).
+Lizard: no se recibio hoja.

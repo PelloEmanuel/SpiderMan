@@ -1,9 +1,127 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><title>Spider-Man 2D</title>
-<link rel="stylesheet" href="style.css?v=2.1"></head>
-<body><div id="game"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
-<script src="src/config.js?v=2.1"></script><script src="src/city.js?v=2.1"></script>
-<script src="src/textures.js?v=2.1"></script><script src="src/player.js?v=2.1"></script><script src="src/enemies.js?v=2.1"></script>
-<script src="src/ui.js?v=2.1"></script><script src="src/main.js?v=2.1"></script>
-</body></html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Spider-Man 2D - Marvel Battle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css?v=3.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    <div id="game"></div>
+
+    <!-- Panel de Inicio con Tabla de Posiciones -->
+    <div id="start-overlay" class="overlay active">
+      <div class="comic-modal start-modal">
+        <h1 class="comic-title">SPIDER-MAN 2D</h1>
+        <p class="comic-subtitle">¡DEFIENDE NUEVA YORK DE LOS SUPERVILLANOS!</p>
+
+        <div class="controls-guide">
+          <div class="ctrl-card"><span class="ctrl-key">CLICK DERECHO</span><span>Colgarse / Balanceo</span></div>
+          <div class="ctrl-card"><span class="ctrl-key">CLICK IZQUIERDO</span><span>Golpe</span></div>
+          <div class="ctrl-card"><span class="ctrl-key">TECLA F</span><span>Telaraña a enemigo</span></div>
+          <div class="ctrl-card"><span class="ctrl-key">A / D · ESPACIO</span><span>Moverse / Saltar</span></div>
+          <div class="ctrl-card"><span class="ctrl-key">SHIFT</span><span>Esquivar / Dash</span></div>
+          <div class="ctrl-card"><span class="ctrl-key">MANTENER R (3s)</span><span>Rendirse / Anotar</span></div>
+        </div>
+
+        <div class="leaderboard-section">
+          <h2 class="section-title">🏆 TABLA DE POSICIONES</h2>
+          <div class="table-container">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>JUGADOR</th>
+                  <th>PUNTOS</th>
+                  <th>TIEMPO</th>
+                  <th>FECHA</th>
+                </tr>
+              </thead>
+              <tbody id="start-leaderboard-body">
+                <tr><td colspan="5" class="loading-cell">Cargando puntajes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="start-actions">
+          <button id="btn-start-game" class="comic-btn red-btn">¡COMENZAR PARTIDA!</button>
+          <p class="press-any-hint">O pulsa cualquier tecla para empezar</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Fin de Partida / Victoria (Formulario Nombre y Apellido) -->
+    <div id="gameover-overlay" class="overlay">
+      <div class="comic-modal end-modal">
+        <h2 id="end-title" class="comic-title red-title">¡HAS CAÍDO!</h2>
+        <p id="end-desc" class="comic-subtitle">La ciudad necesita que te levantes de nuevo.</p>
+
+        <div class="stats-summary">
+          <div class="stat-box">
+            <span class="stat-label">PUNTAJE FINAL</span>
+            <span id="final-score" class="stat-val">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">TIEMPO TRANSCURRIDO</span>
+            <span id="final-time" class="stat-val">00:00.0</span>
+          </div>
+        </div>
+
+        <!-- Formulario para registrar puntaje -->
+        <form id="score-form" class="score-form" onsubmit="return false;">
+          <h3>REGISTRA TU PUNTAJE</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-nombre">Nombre:</label>
+              <input type="text" id="input-nombre" placeholder="Ej: Peter" required maxlength="50" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="input-apellido">Apellido:</label>
+              <input type="text" id="input-apellido" placeholder="Ej: Parker" required maxlength="50" autocomplete="off">
+            </div>
+          </div>
+          <button type="submit" id="btn-submit-score" class="comic-btn yellow-btn">GUARDAR EN LA TABLA</button>
+          <div id="form-feedback" class="form-feedback"></div>
+        </form>
+
+        <!-- Tabla actualizada post-registro -->
+        <div id="end-leaderboard-section" class="leaderboard-section" style="display:none;">
+          <h3 class="section-title">TOP CLASIFICACIÓN</h3>
+          <div class="table-container small-table">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>JUGADOR</th>
+                  <th>PUNTOS</th>
+                  <th>TIEMPO</th>
+                </tr>
+              </thead>
+              <tbody id="end-leaderboard-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="end-actions">
+          <button id="btn-restart-game" class="comic-btn red-btn">JUGAR DE NUEVO (R)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+  <script src="src/config.js?v=3.0"></script>
+  <script src="src/assets_data.js?v=3.0"></script>
+  <script src="src/city.js?v=3.0"></script>
+  <script src="src/textures.js?v=3.0"></script>
+  <script src="src/player.js?v=3.0"></script>
+  <script src="src/enemies.js?v=3.0"></script>
+  <script src="src/ui.js?v=3.0"></script>
+  <script src="src/main.js?v=3.0"></script>
+</body>
+</html>

@@ -4,10 +4,12 @@ class Player {
     this.s=s; this.sp=s.physics.add.sprite(x,y,'hero_idle').setDepth(10).setCollideWorldBounds(true);
     { const im=s.textures.get('hero_idle').getSourceImage(); // el cuerpo físico (20x38) se adapta al tamaño del sprite
       this.sp.setOrigin(.5,(im.height-19)/im.height); this.sp.body.setSize(20,38).setOffset((im.width-20)/2,im.height-38).setMaxVelocity(950,1300); }
-    Object.assign(this,{hp:CFG.PLAYER_HP,facing:1,web:null,inv:0,dashT:0,dashCd:0,combo:0,comboT:0,atkCd:0,shotCd:0,climbing:false,wallDir:0,trailT:0,tryT:0,lock:false,shootT:0,webT:0,tumbleT:0,idleT:0}); this.runN=1; while(s.textures.exists('hero_run'+this.runN)) this.runN++; // nº de frames de carrera disponibles
+    Object.assign(this,{hp:CFG.PLAYER_HP,facing:1,web:null,inv:0,dashT:0,dashCd:0,combo:0,comboT:0,atkCd:0,shotCd:0,climbing:false,wallDir:0,trailT:0,tryT:0,lock:false,shootT:0,webT:0,tumbleT:0,idleT:0,leftClickDownPrev:false}); 
+    this.runN=1; while(s.textures.exists('hero_run'+this.runN)) this.runN++; // nº de frames de carrera disponibles
     this.gfx=s.add.graphics().setDepth(9);
-    this.k=s.input.keyboard.addKeys('A,D,W,S,E,Q,SPACE,SHIFT,J,K,LEFT,RIGHT,UP');
-    s.input.setDefaultCursor('crosshair'); s.input.on('pointerdown',p=>{ if(p.rightButtonDown()) this.shoot(); });
+    // Tecla F para atacar con telaraña
+    this.k=s.input.keyboard.addKeys('A,D,W,S,E,Q,F,SPACE,SHIFT,J,K,LEFT,RIGHT,UP');
+    s.input.setDefaultCursor('crosshair');
   }
   get x(){return this.sp.x;} get y(){return this.sp.y;}
   // Zona de anclaje = cualquier punto de la textura de un edificio. La telaraña se ancla EXACTAMENTE bajo el cursor.
@@ -27,16 +29,29 @@ class Player {
   punch(){
     if(this.atkCd>0||this.s.dead) return; this.atkCd=.24; this.combo=this.combo%3+1; this.comboT=.7;
     const big=this.combo===3, f=this.facing;
-    this.s.enemies.getChildren().slice().forEach(e=>{ const dx=(e.x-this.x)*f;
-      if(dx>-10&&dx<72&&Math.abs(e.y-this.y)<50) this.s.hurtEnemy(e,10+this.combo*5,f*(big?420:160),big?-260:-80); });
-    const sl=this.s.add.arc(this.x+f*34,this.y,34,-60,60,false,0xffffff,.8).setDepth(11); if(f<0) sl.setAngle(180);
-    this.s.tweens.add({targets:sl,alpha:0,scale:1.4,duration:140,onComplete:()=>sl.destroy()});
+    const py = this.sp.body ? this.sp.body.center.y : this.y;
+    this.s.enemies.getChildren().slice().forEach(e=>{
+      if(!e.active) return;
+      const dx=(e.x-this.x)*f;
+      const ey = e.body ? e.body.center.y : e.y;
+      // Detección basada en el centro de los cuerpos físicos para máxima fiabilidad
+      if(dx > -20 && dx < 85 && Math.abs(ey - py) < 75){
+        this.s.hurtEnemy(e, 10 + this.combo * 5, f * (big ? 420 : 160), big ? -260 : -80);
+      }
+    });
+    // Zona de golpe invisible
   }
   shoot(){ // telaraña a enemigo: atrae (Shift: aleja) e inmoviliza 2 s
     if(this.shotCd>0||this.s.dead) return; this.shotCd=.7; this.shootT=.28; let t=null,bd=380;
     const pt=this.s.input.activePointer,m=this.s.cameras.main.getWorldPoint(pt.x,pt.y); bd=160; this.facing=Math.sign(m.x-this.x)||this.facing;
-    this.s.enemies.getChildren().forEach(e=>{ const d=Math.hypot(e.x-m.x,e.y-m.y); if(d<bd&&Math.hypot(e.x-this.x,e.y-this.y)<500){bd=d;t=e;} });
-    const tx=t?t.x:this.x+this.facing*300, ty=t?t.y:this.y;
+    const py = this.sp.body ? this.sp.body.center.y : this.y;
+    this.s.enemies.getChildren().forEach(e=>{
+      if(!e.active) return;
+      const ey = e.body ? e.body.center.y : e.y;
+      const d=Math.hypot(e.x-m.x,ey-m.y);
+      if(d<bd&&Math.hypot(e.x-this.x,ey-py)<550){ bd=d; t=e; }
+    });
+    const tx=t?t.x:this.x+this.facing*300, ty=t?(t.body?t.body.center.y:t.y):this.y;
     const l=this.s.textures.exists('fx_bolt')   // proyectil de telaraña (sprite) o línea simple si falta el PNG
       ? this.s.add.image(this.x,this.y-8,'fx_bolt').setOrigin(0,.5).setDepth(11).setRotation(Math.atan2(ty-this.y+8,tx-this.x)).setDisplaySize(Math.max(40,Math.hypot(tx-this.x,ty-this.y+8)),12)
       : this.s.add.line(0,0,this.x,this.y,tx,ty,0xffffff).setOrigin(0).setDepth(11);
@@ -57,11 +72,22 @@ class Player {
     if(wall) this.wallDir=b.blocked.left?1:-1;
     this.inv-=dt;this.dashT-=dt;this.dashCd-=dt;this.atkCd-=dt;this.shotCd-=dt;this.comboT-=dt;this.shootT-=dt;this.webT-=dt;this.tumbleT-=dt; if(this.comboT<=0) this.combo=0;
     sp.setAlpha(this.inv>0?(Math.floor(this.inv*20)%2?.4:1):1);
-    const up=k.W.isDown||k.UP.isDown, hold=this.s.input.activePointer.leftButtonDown()||k.E.isDown||k.Q.isDown;
+
+    // CLICK DERECHO: Colgarse y balancearse de la telaraña
+    const up=k.W.isDown||k.UP.isDown, hold=this.s.input.activePointer.rightButtonDown()||k.E.isDown||k.Q.isDown;
     if(!hold) this.lock=false; this.tryT-=dt;
-    if(hold&&!this.web&&!this.lock&&this.tryT<=0){ this.tryT=.1; this.tryWeb(); }   // mantener clic: lanzar telaraña al punto apuntado
+    if(hold&&!this.web&&!this.lock&&this.tryT<=0){ this.tryT=.1; this.tryWeb(); }
     if(!hold&&this.web) this.release();
-    if(J(k.J)) this.punch(); if(J(k.K)) this.shoot();
+
+    // CLICK IZQUIERDO: Golpear (Punch)
+    const leftDown = this.s.input.activePointer.leftButtonDown();
+    if(leftDown && !this.leftClickDownPrev){ this.punch(); }
+    this.leftClickDownPrev = leftDown;
+
+    if(J(k.J)) this.punch();
+    // TECLA F: Disparar telaraña a enemigo
+    if(J(k.F) || J(k.K)) this.shoot();
+
     if(J(k.SHIFT)&&this.dashCd<=0){ this.dashCd=.7;this.dashT=.18;this.inv=Math.max(this.inv,.35);this.release();
       const vy=up?-1:0, vx=(dir||this.facing); sp.setVelocity(vx*(vy?450:720),vy*520);
       if(this.s.textures.exists('fx_speed_h')) this.s.tweens.add({targets:this.s.add.image(sp.x-vx*50,sp.y,'fx_speed_h').setFlipX(vx<0).setDepth(9).setScale(1.4),alpha:0,duration:260,onComplete:function(){ this.targets[0].destroy(); }}); }
@@ -88,6 +114,12 @@ class Player {
       if(ground) this.climbing=false;
       sp.setScale(1,ground&&k.S.isDown?(this.s.png.has('hero_crouch')?1:.65):1+(ground&&dir?Math.sin(this.s.time.now/60)*.04:0));
     }
+
+    // Límite de arena durante batalla contra jefe (2 pantallas = 2560px)
+    if(this.s.bossFight && this.s.arenaBounds){
+      sp.x = Phaser.Math.Clamp(sp.x, this.s.arenaBounds.minX + 25, this.s.arenaBounds.maxX - 25);
+    }
+
     this.idleT=(ground&&!dir&&!this.web&&Math.abs(b.velocity.x)<40)?this.idleT+dt:0;
     this.gfx.clear(); this.aim();
     if(this.web){ const w=this.web,hx=sp.x,hy=sp.y-12,d=Math.hypot(w.x-hx,w.y-hy),sag=Math.max(0,w.len-d)*.5;
@@ -97,24 +129,22 @@ class Player {
       this.gfx.fillStyle(0xffffff).fillCircle(w.x,w.y,4); }
     this.visuals(ground,wall,dt);
   }
-  // Mira: se pone celeste cuando el cursor apunta a una fachada alcanzable
   aim(){ const pt=this.s.input.activePointer,m=this.s.cameras.main.getWorldPoint(pt.x,pt.y),t=this.findTarget(),g=this.gfx;
     g.lineStyle(2,t?0x6bd6ff:0x777c9c,.95).strokeCircle(m.x,m.y,12).lineBetween(m.x-20,m.y,m.x-7,m.y).lineBetween(m.x+7,m.y,m.x+20,m.y).lineBetween(m.x,m.y-20,m.x,m.y-7).lineBetween(m.x,m.y+7,m.x,m.y+20);
     if(t){ g.fillStyle(0x6bd6ff,.07).fillRect(t.rect.x,t.rect.y,t.rect.w,t.rect.h); g.lineStyle(2,0x6bd6ff,.45).strokeRect(t.rect.x,t.rect.y,t.rect.w,t.rect.h); }
     if(t&&!this.web){ g.fillStyle(0x6bd6ff,.9).fillCircle(t.x,t.y,4); g.lineStyle(1,0x6bd6ff,.35).lineBetween(this.x,this.y-12,t.x,t.y); } }
-  // Animación por poses (sprites de assets/), estela y líneas de velocidad
   visuals(ground,wall,dt){
     const sp=this.sp,b=sp.body,s=this.s,spd=Math.hypot(b.velocity.x,b.velocity.y),k=this.k,has=q=>s.textures.exists(q),T=(q,fb)=>has(q)?q:fb; let key='hero_idle';
     if(this.inv>.5&&has('hero_hurt')) key='hero_hurt'; else if(this.dashT>0&&has('hero_dash')) key='hero_dash';
-    else if(this.shootT>0) key=T('hero_shoot','hero_punch');                                   // disparo de telaraña a enemigo
+    else if(this.shootT>0) key=T('hero_shoot','hero_punch');
     else if(this.atkCd>.12){ key='hero_punch'+(this.combo-1); if(!has(key)) key='hero_punch'; }
-    else if(this.web) key=this.webT>0?T('hero_webstart','hero_swing'):'hero_swing';              // al enganchar: pose con hilo; luego, balanceo
+    else if(this.web) key=this.webT>0?T('hero_webstart','hero_swing'):'hero_swing';
     else if(this.climbing&&wall) key='hero_climb';
-    else if(!ground) key=this.tumbleT>0?T('hero_tumble'+(Math.floor(s.time.now/70)%3),'hero_jump'):(b.velocity.y>560?T('hero_dive','hero_jump'):'hero_jump'); // voltereta al soltarse, picada al caer
+    else if(!ground) key=this.tumbleT>0?T('hero_tumble'+(Math.floor(s.time.now/70)%3),'hero_jump'):(b.velocity.y>560?T('hero_dive','hero_jump'):'hero_jump');
     else if(Math.abs(b.velocity.x)>40) key=k.S.isDown?T('hero_crouch','hero_idle'):'hero_run'+(Math.floor(s.time.now/(this.runN>2?75:110))%this.runN);
     else if(k.S.isDown) key=T('hero_crouch','hero_idle');
     else { const t=this.idleT%12, near=s.enemies.getChildren().some(e=>Math.abs(e.x-this.x)<380&&Math.abs(e.y-this.y)<120);
-      key=near?T('hero_ready','hero_idle'):t>10?T('hero_wait','hero_idle'):t>5.5?T('hero_idle1','hero_idle'):'hero_idle'; }   // guardia / reposo / brazos cruzados / espera
+      key=near?T('hero_ready','hero_idle'):t>10?T('hero_wait','hero_idle'):t>5.5?T('hero_idle1','hero_idle'):'hero_idle'; }
     if(sp.texture.key!==key) sp.setTexture(key);
     this.trailT-=dt;
     if(spd>520&&this.trailT<=0){ this.trailT=.045;
