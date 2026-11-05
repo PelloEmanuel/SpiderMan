@@ -1,7 +1,15 @@
-// ==========================================
-// CATÁLOGO DE ENEMIGOS, JEFES Y MANIFEST DE SPRITES
-// ==========================================
-// Define estadísticas (HP, velocidad, daño, puntos) y mapea las rutas de los 440 sprites individuales.
+// =============================================================================
+// CATÁLOGO DE ENEMIGOS, JEFES Y REGISTRO DE SPRITES
+// =============================================================================
+// Este archivo centraliza la configuración de combate, parámetros de vida (HP),
+// velocidad de desplazamiento, daño infligido, puntos otorgados y las secuencias
+// de fotogramas para las animaciones de cada personaje en Phaser 3.
+
+// -----------------------------------------------------------------------------
+// Bloque 1: Configuración de los 10 Enemigos Comunes
+// -----------------------------------------------------------------------------
+// Define los matones y pandilleros que patrullan la ciudad:
+// Duke, Slim, Spike, Bruno, Rocco, Blade (pistola), Moose (shurikens), Vinnie, Hawk, Mack.
 const GAME_ENEMIES = {
   "duke": {
     "name": "Duke",
@@ -489,6 +497,20 @@ const GAME_ENEMIES = {
   }
 };
 
+// -----------------------------------------------------------------------------
+// Bloque 2: Configuración de los 9 Supervillanos / Jefes Oficiales
+// -----------------------------------------------------------------------------
+// Define el puntaje acumulado requerido para que aparezca cada jefe, su barra de vida (HP),
+// daño de ataque, velocidad, patrón de combate (terrestre o vuelo) y si es el jefe final:
+// 1. Kingpin      (1.000 pts)  - Combate terrestre con embestidas pesadas
+// 2. Hobgoblin    (2.500 pts)  - Vuelo en planeador y lanzamiento de calabazas explosivas
+// 3. Duende Verde (5.000 pts)  - Vuelo rápido con doble bomba calabaza
+// 4. Scorpion     (8.000 pts)  - Ataques con cola y carga frontal
+// 5. Lizard       (12.000 pts) - Agilidad reptiliana cuerpo a cuerpo
+// 6. Electro      (17.000 pts) - Disparos multidireccionales de rayos eléctricos
+// 7. Sandman      (23.000 pts) - Golpe masivo de arena y gran resistencia
+// 8. Venom        (30.000 pts) - Fuerza bruta simbiótica y velocidad letal
+// 9. Doctor Doom  (40.000 pts) - Jefe final: ráfagas místicas de energía y victoria total
 const GAME_BOSSES = [
   {
     "id": "kingpin",
@@ -1305,6 +1327,11 @@ const GAME_BOSSES = [
   }
 ];
 
+// -----------------------------------------------------------------------------
+// Bloque 3: Registro Global de Sprites (Sprite Manifest - 440 Imágenes)
+// -----------------------------------------------------------------------------
+// Asocia cada clave de textura única utilizada por el motor Phaser con su ruta física
+// dentro de la carpeta 'assets/sprites/', permitiendo la precarga ordenada de todos los fotogramas.
 const SPRITE_MANIFEST = {
   "spr_en_duke_idle_0": "assets/sprites/01_Enemigos/Duke/Duke_Idle_neutral_01.png",
   "spr_en_duke_idle_1": "assets/sprites/01_Enemigos/Duke/Duke_Idle_neutral_02.png",

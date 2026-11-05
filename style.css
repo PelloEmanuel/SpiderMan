@@ -1,3 +1,12 @@
+/* =============================================================================
+   ESTILOS VISUALES: SPIDER-MAN 2D (ESTÉTICA CÓMIC MARVEL)
+   =============================================================================
+   Define el diseño responsivo, paneles modales oscuros con bordes neón,
+   tablas de posiciones, tipografías estilo historieta y formularios de registro. */
+
+/* -----------------------------------------------------------------------------
+   Bloque 1: Reseteo global de caja y tipografía base
+   ----------------------------------------------------------------------------- */
 * {
   box-sizing: border-box;
 }
@@ -14,6 +23,9 @@ html, body {
   user-select: none;
 }
 
+/* -----------------------------------------------------------------------------
+   Bloque 2: Contenedor principal y lienzo del juego Phaser
+   ----------------------------------------------------------------------------- */
 #game-container {
   position: relative;
   width: 100vw;
@@ -32,7 +44,9 @@ html, body {
   justify-content: center;
 }
 
-/* Overlays */
+/* -----------------------------------------------------------------------------
+   Bloque 3: Capas de superposición (Overlays) y desenfoque de fondo
+   ----------------------------------------------------------------------------- */
 .overlay {
   position: absolute;
   top: 0;
@@ -50,12 +64,15 @@ html, body {
   z-index: 1000;
 }
 
+/* Estado activo visible de la superposición */
 .overlay.active {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* Modal Comic Box */
+/* -----------------------------------------------------------------------------
+   Bloque 4: Ventana modal con diseño de cómic y borde rojo luminoso
+   ----------------------------------------------------------------------------- */
 .comic-modal {
   background: linear-gradient(135deg, #0e1630 0%, #171f45 100%);
   border: 4px solid #e0223a;
@@ -71,11 +88,15 @@ html, body {
   animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* Animación de apertura suave tipo viñeta */
 @keyframes popIn {
   0% { transform: scale(0.85); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* -----------------------------------------------------------------------------
+   Bloque 5: Tipografías de títulos y subtítulos estilo historieta
+   ----------------------------------------------------------------------------- */
 .comic-title {
   font-family: 'Bangers', cursive, Impact, sans-serif;
   font-size: 52px;
@@ -90,6 +111,11 @@ html, body {
   text-shadow: 3px 3px 0 #fff, 6px 6px 0 #000;
 }
 
+.yellow-title {
+  color: #ffe14a;
+  text-shadow: 3px 3px 0 #e0223a, 6px 6px 0 #000;
+}
+
 .comic-subtitle {
   font-family: 'Bangers', cursive, sans-serif;
   font-size: 20px;
@@ -99,7 +125,9 @@ html, body {
   text-shadow: 1px 1px 0 #000;
 }
 
-/* Controles Guía */
+/* -----------------------------------------------------------------------------
+   Bloque 6: Tarjetas de guía de controles
+   ----------------------------------------------------------------------------- */
 .controls-guide {
   display: flex;
   flex-wrap: wrap;
@@ -127,7 +155,9 @@ html, body {
   letter-spacing: 1px;
 }
 
-/* Leaderboard Table */
+/* -----------------------------------------------------------------------------
+   Bloque 7: Sección y contenedor de la Tabla de Posiciones
+   ----------------------------------------------------------------------------- */
 .leaderboard-section {
   margin: 16px 0;
 }
@@ -152,6 +182,9 @@ html, body {
   max-height: 160px;
 }
 
+/* -----------------------------------------------------------------------------
+   Bloque 8: Estructura de la tabla, encabezados y filas
+   ----------------------------------------------------------------------------- */
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
@@ -180,6 +213,9 @@ html, body {
   background: rgba(224, 34, 58, 0.15);
 }
 
+/* -----------------------------------------------------------------------------
+   Bloque 9: Medallas y distintivos para el podio (Top 1, 2 y 3)
+   ----------------------------------------------------------------------------- */
 .rank-badge {
   font-weight: 800;
   border-radius: 4px;
@@ -189,9 +225,9 @@ html, body {
   text-align: center;
 }
 
-.rank-1 { background: #ffd700; color: #000; }
-.rank-2 { background: #c0c0c0; color: #000; }
-.rank-3 { background: #cd7f32; color: #000; }
+.rank-1 { background: #ffd700; color: #000; } /* Oro */
+.rank-2 { background: #c0c0c0; color: #000; } /* Plata */
+.rank-3 { background: #cd7f32; color: #000; } /* Bronce */
 .rank-other { color: #8fa6ff; }
 
 .loading-cell {
@@ -201,7 +237,9 @@ html, body {
   font-style: italic;
 }
 
-/* Stats Summary */
+/* -----------------------------------------------------------------------------
+   Bloque 10: Cajas de estadísticas finales (Puntaje y Tiempo transcurrido)
+   ----------------------------------------------------------------------------- */
 .stats-summary {
   display: flex;
   justify-content: center;
@@ -231,7 +269,9 @@ html, body {
   color: #ffe14a;
 }
 
-/* Form */
+/* -----------------------------------------------------------------------------
+   Bloque 11: Formulario de registro de Nombre y Apellido
+   ----------------------------------------------------------------------------- */
 .score-form {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -295,7 +335,9 @@ html, body {
 .feedback-success { color: #4ade80; }
 .feedback-error { color: #f87171; }
 
-/* Buttons */
+/* -----------------------------------------------------------------------------
+   Bloque 12: Botones de acción con efecto de relieve y sombreado cómic
+   ----------------------------------------------------------------------------- */
 .comic-btn {
   font-family: 'Bangers', cursive;
   font-size: 22px;

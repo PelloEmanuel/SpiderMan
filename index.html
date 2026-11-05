@@ -1,24 +1,39 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <!-- ========================================================================= -->
+  <!-- METADATOS Y RECURSOS DEL DOCUMENTO                                         -->
+  <!-- ========================================================================= -->
   <meta charset="UTF-8">
   <title>Spider-Man 2D - Marvel Battle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Hoja de estilos con diseño inspirado en cómic -->
   <link rel="stylesheet" href="style.css?v=3.0">
+  
+  <!-- Tipografías web de Google Fonts: 'Bangers' para cómic y 'Montserrat' para textos -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- ========================================================================= -->
+  <!-- CONTENEDOR PRINCIPAL DEL JUEGO Y CAPAS DE INTERFAZ                        -->
+  <!-- ========================================================================= -->
   <div id="game-container">
+    <!-- Lienzo (Canvas) donde el motor Phaser renderiza el juego -->
     <div id="game"></div>
 
-    <!-- Panel de Inicio con Tabla de Posiciones -->
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- MODAL 1: Pantalla de Inicio con Guía de Controles y Tabla de Posiciones  -->
+    <!-- ----------------------------------------------------------------------- -->
     <div id="start-overlay" class="overlay active">
       <div class="comic-modal start-modal">
+        <!-- Título principal y subtítulo -->
         <h1 class="comic-title">SPIDER-MAN 2D</h1>
         <p class="comic-subtitle">¡DEFIENDE NUEVA YORK DE LOS SUPERVILLANOS!</p>
 
+        <!-- Bloque de tarjetas con la guía de controles -->
         <div class="controls-guide">
           <div class="ctrl-card"><span class="ctrl-key">CLICK DERECHO</span><span>Colgarse / Balanceo</span></div>
           <div class="ctrl-card"><span class="ctrl-key">CLICK IZQUIERDO</span><span>Golpe</span></div>
@@ -28,6 +43,7 @@
           <div class="ctrl-card"><span class="ctrl-key">MANTENER R (3s)</span><span>Rendirse / Anotar</span></div>
         </div>
 
+        <!-- Bloque de Tabla de Posiciones inicial cargada desde MariaDB -->
         <div class="leaderboard-section">
           <h2 class="section-title">🏆 TABLA DE POSICIONES</h2>
           <div class="table-container">
@@ -41,6 +57,7 @@
                   <th>FECHA</th>
                 </tr>
               </thead>
+              <!-- Las filas de puntajes se insertan dinámicamente mediante fetch() a scores.php -->
               <tbody id="start-leaderboard-body">
                 <tr><td colspan="5" class="loading-cell">Cargando puntajes...</td></tr>
               </tbody>
@@ -48,6 +65,7 @@
           </div>
         </div>
 
+        <!-- Botón para iniciar la partida -->
         <div class="start-actions">
           <button id="btn-start-game" class="comic-btn red-btn">¡COMENZAR PARTIDA!</button>
           <p class="press-any-hint">O pulsa cualquier tecla para empezar</p>
@@ -55,12 +73,16 @@
       </div>
     </div>
 
-    <!-- Modal de Fin de Partida / Victoria (Formulario Nombre y Apellido) -->
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- MODAL 2: Fin de Partida (Derrota / Victoria) y Registro de Puntaje       -->
+    <!-- ----------------------------------------------------------------------- -->
     <div id="gameover-overlay" class="overlay">
       <div class="comic-modal end-modal">
+        <!-- Título y descripción dinámicos (cambian a '¡VICTORIA TOTAL!' al vencer a Doctor Doom) -->
         <h2 id="end-title" class="comic-title red-title">¡HAS CAÍDO!</h2>
         <p id="end-desc" class="comic-subtitle">La ciudad necesita que te levantes de nuevo.</p>
 
+        <!-- Resumen de estadísticas de la partida (puntos obtenidos y tiempo empleado) -->
         <div class="stats-summary">
           <div class="stat-box">
             <span class="stat-label">PUNTAJE FINAL</span>
@@ -72,7 +94,7 @@
           </div>
         </div>
 
-        <!-- Formulario para registrar puntaje -->
+        <!-- Formulario en español para ingresar Nombre y Apellido -->
         <form id="score-form" class="score-form" onsubmit="return false;">
           <h3>REGISTRA TU PUNTAJE</h3>
           <div class="form-row">
@@ -89,7 +111,7 @@
           <div id="form-feedback" class="form-feedback"></div>
         </form>
 
-        <!-- Tabla actualizada post-registro -->
+        <!-- Tabla de clasificación secundaria mostrada tras registrar récord -->
         <div id="end-leaderboard-section" class="leaderboard-section" style="display:none;">
           <h3 class="section-title">TOP CLASIFICACIÓN</h3>
           <div class="table-container small-table">
@@ -107,6 +129,7 @@
           </div>
         </div>
 
+        <!-- Botón para reiniciar inmediatamente la partida -->
         <div class="end-actions">
           <button id="btn-restart-game" class="comic-btn red-btn">JUGAR DE NUEVO (R)</button>
         </div>
@@ -114,14 +137,25 @@
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- CARGA DE SCRIPTS: LIBRERÍA PHASER 3 Y MÓDULOS DEL JUEGO                   -->
+  <!-- ========================================================================= -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+  <!-- Constantes de física, dimensiones y reglas globales -->
   <script src="src/config.js?v=3.0"></script>
+  <!-- Catálogo de enemigos, estadísticas de jefes y mapa de 440 sprites -->
   <script src="src/assets_data.js?v=3.0"></script>
+  <!-- Generación procedural de edificios infinitos y botiquines cada 45s -->
   <script src="src/city.js?v=3.0"></script>
+  <!-- Texturas complementarias, fondos y pixel-art del botiquín -->
   <script src="src/textures.js?v=3.0"></script>
+  <!-- Clase del jugador: telaraña con clic derecho, golpe con clic izq, combate y físicas -->
   <script src="src/player.js?v=3.0"></script>
+  <!-- Inteligencia artificial, disparos y animaciones de enemigos y jefes -->
   <script src="src/enemies.js?v=3.0"></script>
+  <!-- Interfaz de usuario (HUD) estilo cómic, barras de vida, timers y avisos -->
   <script src="src/ui.js?v=3.0"></script>
+  <!-- Bucle principal, manejo de eventos de combate, arena de 2 pantallas y conexión DB -->
   <script src="src/main.js?v=3.0"></script>
 </body>
 </html>
